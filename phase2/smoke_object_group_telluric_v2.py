@@ -10,12 +10,14 @@ import argparse
 import json
 from collections import defaultdict
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 
 # Argument parsing for generalization
 parser = argparse.ArgumentParser(description='Process object groups for telluric spectra.')
-parser.add_argument('--parquet', type=str, default='/home/fburgos/telluric/p_apoyo/p_apoyo/phase1/metadata_final.parquet', help='Path to metadata parquet file')
-parser.add_argument('--template_config', type=str, default='/home/fburgos/telluric/p_apoyo/p_apoyo/phase2/smoke_config.ini', help='Path to template config file')
-parser.add_argument('--script', type=str, default='/home/fburgos/telluric/p_apoyo/p_apoyo/phase2/telluric_spectra.py', help='Path to telluric spectra script')
+parser.add_argument('--parquet', type=str, default=os.path.join(PROJECT_DIR, 'phase1', 'metadata_final.parquet'), help='Path to metadata parquet file')
+parser.add_argument('--template_config', type=str, default=os.path.join(SCRIPT_DIR, 'smoke_config.ini'), help='Path to template config file')
+parser.add_argument('--script', type=str, default=os.path.join(SCRIPT_DIR, 'telluric_spectra.py'), help='Path to telluric spectra script')
 parser.add_argument('--output', type=str, default='spectra', help='Output base directory for object groups')
 parser.add_argument('--calib', type=str, default='/mnt/disco_datos/data/HARPS/calib', help='Calibration files base directory')
 parser.add_argument('--science_root', type=str, default=None, help='Current science root, used to resolve portable REL_PATH values')

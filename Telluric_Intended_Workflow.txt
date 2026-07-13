@@ -13,7 +13,9 @@ the stellar spectra themselves.
 
 The maintained code is in:
 
-    p_apoyo/p_apoyo/
+    phase1/
+    phase2/
+    run_pipeline.sh
 
 Other historical folders in the repository should be treated as deprecated
 unless there is a specific reason to inspect them.
@@ -104,7 +106,7 @@ Stage 1: raw table
 
 The first Stage 1 script is:
 
-    p_apoyo/p_apoyo/phase1/raw_table.py
+    phase1/raw_table.py
 
 It scans the science directory tree and builds:
 
@@ -134,7 +136,7 @@ Stage 1: clean and final table
 
 The second Stage 1 script is:
 
-    p_apoyo/p_apoyo/phase1/cleantable.py
+    phase1/cleantable.py
 
 It reads:
 
@@ -163,7 +165,7 @@ Stage 2: per-object Naira run
 
 The Phase 2 wrapper is:
 
-    p_apoyo/p_apoyo/phase2/smoke_object_group_telluric_v2.py
+    phase2/smoke_object_group_telluric_v2.py
 
 For each OBJECT in metadata_final.parquet, it:
 
@@ -176,7 +178,7 @@ For each OBJECT in metadata_final.parquet, it:
 
 The maintained Naira script is:
 
-    p_apoyo/p_apoyo/phase2/telluric_spectra.py
+    phase2/telluric_spectra.py
 
 The current template configuration uses:
 

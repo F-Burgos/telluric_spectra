@@ -7,9 +7,10 @@ This repository builds a HARPS atmospheric-spectrum dataset in two stages:
 2. Stage each object's `e2ds_A` spectra and auxiliary CCF/S1D/BIS products,
    resolve its wavelength/blaze calibrations, and run Naira.
 
-The maintained implementation is under `p_apoyo/p_apoyo`. Historical root-level
-copies such as `fase1`, `phase2`, `rp1`, and `Results` have been moved into the
-ignored local archive `_deprecated/` and are not called by the launcher.
+The maintained implementation now lives at the repository root: `phase1/`,
+`phase2/`, and `run_pipeline.sh`. Historical copies such as `fase1`, old
+`phase2`, `rp1`, and `Results` have been moved into the ignored local archive
+`_deprecated/` and are not called by the launcher.
 
 ## Run
 
