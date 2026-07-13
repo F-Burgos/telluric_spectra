@@ -1,0 +1,293 @@
+The Telluric Dataset Project - Intended Workflow
+================================================
+
+Purpose
+-------
+
+This project builds a telluric-spectrum dataset from HARPS observations.
+
+The telluric spectrum is the atmospheric transmission spectrum imprinted on the
+astronomical observation. The project is therefore focused on extracting a
+consistent atmospheric product from many science observations, not on analyzing
+the stellar spectra themselves.
+
+The maintained code is in:
+
+    p_apoyo/p_apoyo/
+
+Other historical folders in the repository should be treated as deprecated
+unless there is a specific reason to inspect them.
+
+
+Data scale and assumptions
+--------------------------
+
+The full dataset is large: approximately five years of HARPS observations and
+on the order of terabytes of data. Local development may only contain a small
+subset of the full dataset.
+
+For scale reasons, the pipeline avoids opening or processing every FITS product
+unless explicitly requested. The useful science products for the current
+workflow are:
+
+    *_e2ds_A.fits    Primary science product used by Naira
+    *ccf*_A.fits     Auxiliary product
+    *s1d_A.fits      Auxiliary product
+    *bis*_A.fits     Auxiliary product
+
+The object names written in FITS headers are inconsistent by nature. Different
+observing teams may have used different names for the same astronomical object.
+The pipeline assigns a practical canonical object name while preserving the
+original observation name.
+
+The current RA/DEC grouping is intentionally fast. It may occasionally split a
+real object into more than one group, but this is acceptable for the current
+science goal because Phase 2 processes and filters by object name, and the
+project is focused on telluric spectra rather than perfect stellar clustering.
+
+
+High-level pipeline
+-------------------
+
+The pipeline has two completed stages.
+
+Stage 1:
+
+    Scan selected HARPS science products and build metadata tables.
+
+Stage 2:
+
+    Use the final metadata table to run Naira object-by-object and generate
+    telluric spectra.
+
+Stage 3:
+
+    Not designed yet.
+
+
+Canonical launcher
+------------------
+
+Run the maintained pipeline from the project root with:
+
+    ./run_telluric_pipeline.sh \
+      --science /path/to/HARPS/science \
+      --calib /path/to/HARPS/calib \
+      --work-dir /path/to/work/phase1 \
+      --tables-path /path/to/work/tables
+
+By default, Phase 2 outputs are written to a folder called:
+
+    ./spectra/
+
+relative to the directory where the launcher is executed.
+
+To process only one object for a smoke test:
+
+    ./run_telluric_pipeline.sh \
+      --science /path/to/HARPS/science \
+      --calib /path/to/HARPS/calib \
+      --work-dir /path/to/work/phase1 \
+      --tables-path /path/to/work/tables \
+      --star HD39091
+
+To place Phase 2 outputs somewhere else:
+
+    ./run_telluric_pipeline.sh \
+      --science /path/to/HARPS/science \
+      --calib /path/to/HARPS/calib \
+      --output /path/to/spectra
+
+
+Stage 1: raw table
+------------------
+
+The first Stage 1 script is:
+
+    p_apoyo/p_apoyo/phase1/raw_table.py
+
+It scans the science directory tree and builds:
+
+    metadata_raw.parquet
+
+By default, it only reads selected products:
+
+    e2ds_A, ccf_A, s1d_A, bis_A
+
+This is intentional. It keeps the scan useful for the Naira workflow and avoids
+spending time on FITS files that are not used later.
+
+Important columns include:
+
+    PATH          Original or resolved file path
+    REL_PATH      Path relative to the science root, useful for portability
+    PRODUCT_TYPE  Product label such as e2ds_A, ccf_A, s1d_A, or bis_A
+    OBJ_ID        Original object name from the FITS header
+
+If a complete FITS inventory is ever needed, use:
+
+    --products all
+
+
+Stage 1: clean and final table
+------------------------------
+
+The second Stage 1 script is:
+
+    p_apoyo/p_apoyo/phase1/cleantable.py
+
+It reads:
+
+    metadata_raw.parquet
+
+and produces:
+
+    metadata.parquet
+    metadata_final.parquet
+    metadata_remaining.parquet
+
+The important output for Phase 2 is:
+
+    metadata_final.parquet
+
+This table contains the useful selected products grouped under a practical
+canonical OBJECT name.
+
+The original object name is preserved separately in:
+
+    OBJ_ID
+
+
+Stage 2: per-object Naira run
+-----------------------------
+
+The Phase 2 wrapper is:
+
+    p_apoyo/p_apoyo/phase2/smoke_object_group_telluric_v2.py
+
+For each OBJECT in metadata_final.parquet, it:
+
+    1. Creates an object folder under spectra/
+    2. Symlinks that object's selected science products
+    3. Locates and symlinks the required calibration files
+    4. Writes an object-specific .ini file
+    5. Calls Naira through telluric_spectra.py
+    6. Validates that expected telluric outputs were created
+
+The maintained Naira script is:
+
+    p_apoyo/p_apoyo/phase2/telluric_spectra.py
+
+The current template configuration uses:
+
+    opt_tmpl = no
+
+as requested for the current reduction specification.
+
+
+Phase 2 output structure
+------------------------
+
+For an object named OBJECT, Phase 2 writes under:
+
+    spectra/OBJECT/
+
+The main telluric products are written under:
+
+    spectra/OBJECT/OBJECT/tell_spec/
+
+For each accepted input *_e2ds_A.fits exposure, the pipeline writes one telluric
+FITS file:
+
+    spectra/OBJECT/OBJECT/tell_spec/<exposure>_telluric.fits
+
+Each telluric FITS file stores a 2D matrix:
+
+    n_orders x n_pixels
+
+For the local HARPS subset, this shape is:
+
+    72 x 4096
+
+The FITS header includes:
+
+    TELLURIC = True
+    TELLMAT  = True
+    NORDERS
+    NPIX
+
+The data are therefore all-order telluric spectra, not only one order.
+
+
+Other Phase 2 outputs
+---------------------
+
+Phase 2 also writes auxiliary files:
+
+    spectra/OBJECT/OBJECT_HARPS_..._template.npz
+
+This stores template-related arrays, including wavelength grid, stellar
+template, telluric template, telluric noise, mask, trim values, and median
+airmass.
+
+Quick-look plots are written as:
+
+    spectra/OBJECT/OBJECT/tell_spec/<exposure>_telluric.png
+
+These PNG files are previews of one representative order, currently order 63 or
+the nearest valid order.
+
+The wrapper writes a summary file:
+
+    spectra/OBJECT/processing_summary.json
+
+This records:
+
+    input_e2ds
+    telluric_outputs
+    missing_outputs
+    invalid_outputs
+    missing_calibration_messages
+
+If problems occur, the wrapper may also write:
+
+    spectra/OBJECT/missing_calibrations.txt
+    spectra/OBJECT/telluric_run_failed.txt
+
+
+About "cube" output
+-------------------
+
+Internally, the code builds a telluric array shaped like:
+
+    n_spectra x n_orders x n_pixels
+
+On disk, the current implementation saves this as one 2D FITS matrix per input
+exposure:
+
+    n_orders x n_pixels
+
+This means the object-level cube exists conceptually during processing, but the
+archived output is currently split into per-exposure FITS files.
+
+A future optional improvement would be to also save one object-level cube file:
+
+    spectra/OBJECT/OBJECT_telluric_cube.fits
+
+with shape:
+
+    n_exposures x n_orders x n_pixels
+
+
+Compact workflow summary
+------------------------
+
+    HARPS science tree
+        -> metadata_raw.parquet
+        -> metadata_final.parquet
+        -> per-object Naira runs
+        -> spectra/OBJECT/OBJECT/tell_spec/*_telluric.fits
+
+The principal science product of the completed workflow is:
+
+    all-order telluric spectra from HARPS e2ds_A observations

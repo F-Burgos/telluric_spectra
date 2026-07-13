@@ -1,0 +1,42 @@
+# Local Python/environment files
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Codex/local agent state
+.codex/
+.agents/
+.repo.git/
+
+# Local raw data and generated products
+telluric/
+spectra/
+local_res/
+object_groups/
+spectra_results/
+
+# Large archives and copied datasets
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# Generated science tables and FITS-like data products
+*.parquet
+*.fits
+*.fits.gz
+*.npz
+
+# Generated figures/reports from exploratory runs
+*.png
+*.pdf
+
+# Windows alternate data stream artifacts copied into Linux
+*:Zone.Identifier
+
+# Historical/deprecated local code copies kept for reference only
+_deprecated/
