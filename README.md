@@ -12,6 +12,33 @@ The maintained implementation now lives at the repository root: `phase1/`,
 `phase2`, `rp1`, and `Results` have been moved into the ignored local archive
 `_deprecated/` and are not called by the launcher.
 
+## Environment
+
+The recommended environment manager is `uv`.
+
+```bash
+uv sync
+```
+
+This creates `.venv/` with the required scientific Python packages. To run the
+pipeline through the managed environment:
+
+```bash
+uv run ./run_telluric_pipeline.sh \
+  --science /path/to/HARPS/science \
+  --calib /path/to/HARPS/calib \
+  --work-dir /path/to/work/phase1 \
+  --tables-path /path/to/output/tables \
+  --python python
+```
+
+Alternatively, activate the environment first:
+
+```bash
+source .venv/bin/activate
+./run_telluric_pipeline.sh --python python
+```
+
 ## Run
 
 Provide pointers to the science and calibration trees. By default, Stage 2 writes
