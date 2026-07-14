@@ -24,6 +24,12 @@ parser.add_argument('--science_root', type=str, default=None, help='Current scie
 parser.add_argument('--tables_path', type=str, default='spectra_results', help='Path to spectra results tables')
 parser.add_argument('--star', type=str, default='all', help='Name of the star to process (default: all)')
 parser.add_argument('--python', type=str, default='python3', help='Python executable used to run telluric_spectra.py')
+parser.add_argument(
+    '--plot_orders',
+    type=str,
+    default='',
+    help='Optional telluric preview orders to plot, e.g. "63", "10,20", "50-55", or "all". Default: no plots.',
+)
 args = parser.parse_args()
 
 PARQUET_PATH = args.parquet
@@ -32,6 +38,7 @@ SCRIPT_PATH = args.script
 OUTPUT_BASE = args.output
 CALIB_BASE = args.calib
 TABLES_PATH = args.tables_path
+PLOT_ORDERS = args.plot_orders.strip()
 
 
 # Read metadata table
@@ -105,6 +112,14 @@ def find_calib_file(filename, night_folder=None):
             return night_match
     matches = calib_by_name.get(filename, [])
     return matches[0] if matches else None
+
+
+def safe_name(value):
+    """Return the same filesystem-safe object name used by telluric_spectra.py."""
+    return ''.join(
+        char if char.isalnum() or char in ('-', '_', '.') else '_'
+        for char in str(value)
+    )
 
 
 # Progress bar for OBJECT groups
@@ -237,6 +252,10 @@ for object_name in tqdm(object_names, desc='Processing OBJECT groups',
     config.set('data', 'target', object_name)
     config.set('data', 'data_path', data_path)
     config.set('data', 'tables_path', os.path.abspath(TABLES_PATH))
+    if not config.has_section('output'):
+        config.add_section('output')
+    config.set('output', 'plot_telluric', 'yes' if PLOT_ORDERS else 'no')
+    config.set('output', 'plot_orders', PLOT_ORDERS)
     config_out = os.path.join(object_dir, f'{object_name}.ini')
     with open(config_out, 'w') as f:
         config.write(f)
@@ -257,30 +276,43 @@ for object_name in tqdm(object_names, desc='Processing OBJECT groups',
         os.remove(os.path.join(object_dir, FAILED_LOG))
 
     tell_spec_dir = os.path.join(object_dir, object_name, 'tell_spec')
+    cube_path = os.path.join(tell_spec_dir, f'{safe_name(object_name)}_telluric_cube.fits')
     missing_outputs = []
     invalid_outputs = []
-    for science_path in staged_e2ds:
-        base_name = os.path.splitext(os.path.basename(science_path))[0]
-        output_path = os.path.join(tell_spec_dir, f'{base_name}_telluric.fits')
-        if not os.path.isfile(output_path):
-            missing_outputs.append(output_path)
-            continue
+    expected_cube_shape = None
+    cube_shape = None
+    if not staged_e2ds:
+        missing_outputs.append('No staged e2ds_A spectra for object')
+    elif not os.path.isfile(cube_path):
+        missing_outputs.append(cube_path)
+    else:
         try:
-            with fits.open(science_path, memmap=True) as science_hdul:
-                expected_shape = tuple(science_hdul[0].data.shape)
-            with fits.open(output_path, memmap=True) as output_hdul:
-                output_shape = tuple(output_hdul[0].data.shape)
-            if output_shape != expected_shape:
+            with fits.open(staged_e2ds[0], memmap=True) as science_hdul:
+                expected_cube_shape = (len(staged_e2ds),) + tuple(science_hdul[0].data.shape)
+            with fits.open(cube_path, memmap=True) as output_hdul:
+                cube_shape = tuple(output_hdul[0].data.shape)
+                header = output_hdul[0].header
+                is_cube = bool(header.get('TELLCUBE', False))
+            if cube_shape != expected_cube_shape or not is_cube:
                 invalid_outputs.append(
-                    {'path': output_path, 'expected_shape': expected_shape, 'shape': output_shape}
+                    {
+                        'path': cube_path,
+                        'expected_shape': expected_cube_shape,
+                        'shape': cube_shape,
+                        'tellcube_header': is_cube,
+                    }
                 )
         except Exception as exc:
-            invalid_outputs.append({'path': output_path, 'error': str(exc)})
+            invalid_outputs.append({'path': cube_path, 'error': str(exc)})
 
     summary = {
         'object': object_name,
         'input_e2ds': len(staged_e2ds),
-        'telluric_outputs': len(staged_e2ds) - len(missing_outputs) - len(invalid_outputs),
+        'telluric_cube': cube_path,
+        'telluric_outputs': 1 if staged_e2ds and not missing_outputs and not invalid_outputs else 0,
+        'expected_cube_shape': expected_cube_shape,
+        'cube_shape': cube_shape,
+        'plot_orders': PLOT_ORDERS,
         'missing_outputs': missing_outputs,
         'invalid_outputs': invalid_outputs,
         'missing_calibration_messages': len(missing_files),
@@ -290,7 +322,7 @@ for object_name in tqdm(object_names, desc='Processing OBJECT groups',
 
     if missing_outputs or invalid_outputs:
         print(
-            f'WARNING: {object_name} produced {summary["telluric_outputs"]}/'
-            f'{summary["input_e2ds"]} valid all-order telluric matrices.'
+            f'WARNING: {object_name} did not produce a valid all-order telluric cube '
+            f'for {summary["input_e2ds"]} input spectra.'
         )
     print(f'Done with OBJECT {object_name}.')

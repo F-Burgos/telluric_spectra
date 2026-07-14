@@ -35,6 +35,8 @@ Options:
   --products LIST         FITS products scanned in phase 1
                           (default: e2ds_A,ccf_A,s1d_A,bis_A)
   --radius-near ARCSEC    Radius for cleantable.py (default: 50.0)
+  --plot-orders LIST      Optional telluric preview order(s) to plot; examples:
+                          63, 10,20, 50-55, all. Default: no plots
   --python BIN            Python executable (default: python3)
   --no-fresh              Do not delete previous phase1 parquet outputs before running
   -h, --help              Show this help message
@@ -75,6 +77,7 @@ OUTPUT_BASE=""
 STAR="all"
 PRODUCTS="e2ds_A,ccf_A,s1d_A,bis_A"
 RADIUS_NEAR="50.0"
+PLOT_ORDERS=""
 PYTHON_BIN="python3"
 FRESH_RUN="1"
 
@@ -126,6 +129,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --radius-near)
       RADIUS_NEAR="$2"
+      shift 2
+      ;;
+    --plot-orders)
+      PLOT_ORDERS="$2"
       shift 2
       ;;
     --python)
@@ -236,6 +243,7 @@ run_step "Step 3/3 - smoke_object_group_telluric_v2.py" \
   --science_root "$SCIENCE_PATH" \
   --tables_path "$TABLES_PATH" \
   --star "$STAR" \
+  --plot_orders "$PLOT_ORDERS" \
   --python "$PYTHON_BIN"
 status=$?
 if [ "$status" -ne 0 ]; then

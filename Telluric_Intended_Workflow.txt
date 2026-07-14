@@ -186,6 +186,15 @@ The current template configuration uses:
 
 as requested for the current reduction specification.
 
+Telluric preview plots are disabled by default. To request plots, pass
+--plot-orders to the launcher with a single order, a comma-separated list, a
+range, or all:
+
+    --plot-orders 63
+    --plot-orders 10,20,63
+    --plot-orders 50-55
+    --plot-orders all
+
 
 Phase 2 output structure
 ------------------------
@@ -198,27 +207,28 @@ The main telluric products are written under:
 
     spectra/OBJECT/OBJECT/tell_spec/
 
-For each accepted input *_e2ds_A.fits exposure, the pipeline writes one telluric
-FITS file:
+For each object, the pipeline writes one telluric FITS cube:
 
-    spectra/OBJECT/OBJECT/tell_spec/<exposure>_telluric.fits
+    spectra/OBJECT/OBJECT/tell_spec/OBJECT_telluric_cube.fits
 
-Each telluric FITS file stores a 2D matrix:
+Each telluric FITS file stores a 3D cube:
 
-    n_orders x n_pixels
+    n_exposures x n_orders x n_pixels
 
-For the local HARPS subset, this shape is:
+For a local HARPS object with two accepted exposures, this shape is:
 
-    72 x 4096
+    2 x 72 x 4096
 
 The FITS header includes:
 
     TELLURIC = True
-    TELLMAT  = True
+    TELLCUBE = True
+    NSPECTRA
     NORDERS
     NPIX
 
-The data are therefore all-order telluric spectra, not only one order.
+The data are therefore all-exposure, all-order telluric spectra, not only one
+order.
 
 
 Other Phase 2 outputs
@@ -232,12 +242,12 @@ This stores template-related arrays, including wavelength grid, stellar
 template, telluric template, telluric noise, mask, trim values, and median
 airmass.
 
-Quick-look plots are written as:
+If requested with --plot-orders, quick-look plots are written as:
 
-    spectra/OBJECT/OBJECT/tell_spec/<exposure>_telluric.png
+    spectra/OBJECT/OBJECT/tell_spec/<exposure>_orderNNN_telluric.png
 
-These PNG files are previews of one representative order, currently order 63 or
-the nearest valid order.
+These PNG files are previews of the selected order or orders. No PNG files are
+written by default.
 
 The wrapper writes a summary file:
 
@@ -257,30 +267,6 @@ If problems occur, the wrapper may also write:
     spectra/OBJECT/telluric_run_failed.txt
 
 
-About "cube" output
--------------------
-
-Internally, the code builds a telluric array shaped like:
-
-    n_spectra x n_orders x n_pixels
-
-On disk, the current implementation saves this as one 2D FITS matrix per input
-exposure:
-
-    n_orders x n_pixels
-
-This means the object-level cube exists conceptually during processing, but the
-archived output is currently split into per-exposure FITS files.
-
-A future optional improvement would be to also save one object-level cube file:
-
-    spectra/OBJECT/OBJECT_telluric_cube.fits
-
-with shape:
-
-    n_exposures x n_orders x n_pixels
-
-
 Compact workflow summary
 ------------------------
 
@@ -288,7 +274,7 @@ Compact workflow summary
         -> metadata_raw.parquet
         -> metadata_final.parquet
         -> per-object Naira runs
-        -> spectra/OBJECT/OBJECT/tell_spec/*_telluric.fits
+        -> spectra/OBJECT/OBJECT/tell_spec/OBJECT_telluric_cube.fits
 
 The principal science product of the completed workflow is:
 

@@ -42,6 +42,50 @@ flat_omc          = config.getboolean('template', 'flat_omc')
 neglect_bjd          = config.getboolean('other', 'neglect_bjd')
 plot_ans_tmpl        = config.getboolean('other', 'plot_tmpl')
 save_ans             = config.getboolean('other', 'save')
+plot_telluric_ans    = config.getboolean('output', 'plot_telluric', fallback=False)
+plot_orders_ans      = config.get('output', 'plot_orders', fallback='')
+
+
+def safe_name(value):
+    """Return a filesystem-friendly name while keeping object names readable."""
+    return ''.join(
+        char if char.isalnum() or char in ('-', '_', '.') else '_'
+        for char in str(value)
+    )
+
+
+def parse_order_selection(order_text, n_orders):
+    """Parse comma-separated order selections such as '63', '10,20', or '50-55'."""
+    text = str(order_text).strip().lower()
+    if not text:
+        return []
+    if text == 'all':
+        return list(range(n_orders))
+
+    orders = []
+    for raw_token in text.split(','):
+        token = raw_token.strip()
+        if not token:
+            continue
+        if '-' in token:
+            start_text, end_text = token.split('-', 1)
+            start = int(start_text)
+            end = int(end_text)
+            if start > end:
+                start, end = end, start
+            candidates = range(start, end + 1)
+        else:
+            candidates = [int(token)]
+
+        for order in candidates:
+            if order < 0 or order >= n_orders:
+                raise ValueError(
+                    f'Plot order {order} is outside valid range 0-{n_orders - 1}'
+                )
+            if order not in orders:
+                orders.append(order)
+
+    return orders
 
 
 if instrument == 'ESPRESSO':
@@ -812,10 +856,11 @@ def create_master(data_path, spectra_list, tmpl_ans, skip_bjd = 0, save_name = '
     ref_wave = np.zeros((int(spec.n_order()/order_share_wave), spec.n_pix()))
     master_telluric = np.zeros((int(spec.n_order()/order_share_wave), spec.n_pix()))
 
-    # Final atmospheric spectrum for every selected exposure.  The historical
+    # Final atmospheric spectra for every selected exposure.  The historical
     # implementation wrote each order to the same FITS path inside the order
-    # loop, so only the last order survived.  Keep the complete echelle matrix
-    # in memory and write it once after the final telluric iteration.
+    # loop, so only the last order survived.  Keep the complete exposure x order
+    # x pixel cube in memory and write it once after the final telluric
+    # iteration.
     telluric_matrices = np.full(
         (spec.n_spectra(), spec.n_order(), spec.n_pix()),
         np.nan,
@@ -1101,45 +1146,91 @@ def create_master(data_path, spectra_list, tmpl_ans, skip_bjd = 0, save_name = '
                         continue
 
 
-    # Write one matrix per exposure: rows are spectral orders and columns are
-    # detector pixels.  The original science header is retained for
-    # provenance, with explicit output-shape metadata added below.
+    # Write one cube per object: axes are exposure, spectral order, and detector
+    # pixel.  The first science header is retained for provenance, with explicit
+    # output-shape metadata added below.  This supersedes the old per-exposure
+    # matrix outputs.
     from astropy.io import fits
-    import matplotlib.pyplot as plt
 
     output_dir = os.path.join(data_path, target, 'tell_spec')
     os.makedirs(output_dir, exist_ok=True)
-    preview_order = min(63, spec.n_order() - 1)
 
-    for spec_i, science_path in enumerate(spec.file_list):
-        science_file = os.path.basename(science_path)
-        base_name = os.path.splitext(science_file)[0]
-        output_path = os.path.join(output_dir, f"{base_name}_telluric.fits")
+    for stale_path in glob(os.path.join(output_dir, '*_telluric.fits')):
+        if not stale_path.endswith('_telluric_cube.fits'):
+            os.remove(stale_path)
+    for stale_path in glob(os.path.join(output_dir, '*_telluric.png')):
+        os.remove(stale_path)
 
-        with openFits(science_path) as hdul:
-            header = hdul[0].header.copy()
-        header['TELLURIC'] = (True, 'Atmospheric transmission spectrum')
-        header['TELLMAT'] = (True, 'Data stored as order x pixel matrix')
-        header['NORDERS'] = (spec.n_order(), 'Number of spectral orders')
-        header['NPIX'] = (spec.n_pix(), 'Pixels per spectral order')
+    safe_target = safe_name(target)
+    cube_path = os.path.join(output_dir, f'{safe_target}_telluric_cube.fits')
 
-        fits.PrimaryHDU(
-            telluric_matrices[spec_i],
-            header=header,
-        ).writeto(output_path, overwrite=True)
+    with openFits(spec.file_list[0]) as hdul:
+        header = hdul[0].header.copy()
+    header['TELLURIC'] = (True, 'Atmospheric transmission spectra')
+    header['TELLCUBE'] = (True, 'Data stored as exposure x order x pixel cube')
+    header['NSPECTRA'] = (spec.n_spectra(), 'Number of input spectra/exposures')
+    header['NORDERS'] = (spec.n_order(), 'Number of spectral orders')
+    header['NPIX'] = (spec.n_pix(), 'Pixels per spectral order')
+    header['CUBEAX1'] = ('PIXEL', 'FITS axis 1 / numpy axis 2')
+    header['CUBEAX2'] = ('ORDER', 'FITS axis 2 / numpy axis 1')
+    header['CUBEAX3'] = ('EXPOSURE', 'FITS axis 3 / numpy axis 0')
 
-        png_path = os.path.join(output_dir, f"{base_name}_telluric.png")
-        plt.figure(figsize=(8, 3))
-        plt.step(
-            spec.wave(spec_i, preview_order),
-            telluric_matrices[spec_i, preview_order],
-        )
-        plt.xlabel(r'Wavelength $[\AA]$')
-        plt.ylabel('Flux Tellur')
-        plt.ylim(0.85, 1.05)
-        plt.tight_layout()
-        plt.savefig(png_path, dpi=150)
-        plt.close()
+    source_files = np.array(
+        [os.path.basename(path) for path in spec.file_list],
+        dtype=f'U{max(len(os.path.basename(path)) for path in spec.file_list)}',
+    )
+    source_hdu = fits.BinTableHDU.from_columns(
+        [
+            fits.Column(
+                name='EXPOSURE',
+                format='J',
+                array=np.arange(spec.n_spectra(), dtype=np.int32),
+            ),
+            fits.Column(
+                name='SOURCE',
+                format=f'{source_files.dtype.itemsize // 4}A',
+                array=source_files,
+            ),
+        ],
+        name='SOURCES',
+    )
+
+    fits.HDUList(
+        [
+            fits.PrimaryHDU(telluric_matrices.astype(np.float32), header=header),
+            source_hdu,
+        ]
+    ).writeto(cube_path, overwrite=True)
+
+    if plot_telluric_ans:
+        import matplotlib.pyplot as plt
+
+        plot_orders = parse_order_selection(plot_orders_ans, spec.n_order())
+        if not plot_orders:
+            raise ValueError(
+                'plot_telluric is enabled but no plot_orders were provided. '
+                'Use a comma-separated list like "63", "10,20", "50-55", or "all".'
+            )
+
+        for spec_i, science_path in enumerate(spec.file_list):
+            science_file = os.path.basename(science_path)
+            base_name = os.path.splitext(science_file)[0]
+            for order_i in plot_orders:
+                png_path = os.path.join(
+                    output_dir,
+                    f'{base_name}_order{order_i:03d}_telluric.png',
+                )
+                plt.figure(figsize=(8, 3))
+                plt.step(
+                    spec.wave(spec_i, order_i),
+                    telluric_matrices[spec_i, order_i],
+                )
+                plt.xlabel(r'Wavelength $[\AA]$')
+                plt.ylabel('Flux Tellur')
+                plt.ylim(0.85, 1.05)
+                plt.tight_layout()
+                plt.savefig(png_path, dpi=150)
+                plt.close()
 
     sys.stdout.write('\n')
     if save_ans or skip_bjd != 0:

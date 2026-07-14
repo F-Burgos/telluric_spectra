@@ -63,6 +63,19 @@ existing Stage 1 Parquet files.
 Use `--output /path/to/spectra` only when you want Phase 2 somewhere other than
 the launch directory's `spectra/` folder.
 
+Telluric PNG previews are disabled by default. To write previews for specific
+orders, pass `--plot-orders`:
+
+```bash
+./run_telluric_pipeline.sh \
+  --science /path/to/HARPS/science \
+  --calib /path/to/HARPS/calib \
+  --plot-orders 63
+```
+
+Accepted order selectors are a single order (`63`), a comma-separated list
+(`10,20,63`), a range (`50-55`), or `all`.
+
 ## Principal outputs
 
 - `metadata_raw.parquet`: selected product inventory; `OBJ_ID` preserves the
@@ -70,14 +83,16 @@ the launch directory's `spectra/` folder.
   root.
 - `metadata.parquet`: filtered working metadata.
 - `metadata_final.parquet`: grouped Stage 1 table consumed by Stage 2.
-- `spectra/<OBJECT>/<OBJECT>/tell_spec/*_telluric.fits`: one atmospheric
-  transmission matrix per accepted exposure, shaped `(order, pixel)`.
+- `spectra/<OBJECT>/<OBJECT>/tell_spec/<OBJECT>_telluric_cube.fits`: one
+  atmospheric transmission cube per object, shaped
+  `(exposure, order, pixel)`.
 - `spectra/<OBJECT>/processing_summary.json`: expected, valid, missing,
   and dimensionally invalid outputs for that object.
 
-The original science header is retained in every telluric FITS file. `TELLMAT`,
-`NORDERS`, and `NPIX` describe the matrix output contract.
+The original science header from the first exposure is retained in every
+telluric cube FITS file. `TELLCUBE`, `NSPECTRA`, `NORDERS`, and `NPIX` describe
+the cube output contract.
 
 The canonical Naira template configuration uses `opt_tmpl = no`, following the
 project's current reduction specification. Local HARPS `e2ds_A` inputs have 72
-orders, so their telluric matrices have shape `(72, 4096)`.
+orders, so a two-exposure object has telluric cube shape `(2, 72, 4096)`.
