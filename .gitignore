@@ -14,6 +14,8 @@ __pycache__/
 .repo.git/
 
 # Local raw data and generated products
+Data/*
+!Data/.gitkeep
 telluric/
 spectra/
 local_res/

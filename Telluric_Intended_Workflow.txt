@@ -70,13 +70,29 @@ Stage 3:
 Canonical launcher
 ------------------
 
-Run the maintained pipeline from the project root with:
+First configure the local data entry points:
+
+    ./setup_data_links.sh \
+      --science /path/to/HARPS/science \
+      --calib /path/to/HARPS/calib
+
+This creates symbolic links:
+
+    Data/science -> /path/to/HARPS/science
+    Data/calib   -> /path/to/HARPS/calib
+
+The data are not copied or moved. Use --force if the links need to be replaced.
+
+Then run the maintained pipeline from the project root with:
 
     ./run_telluric_pipeline.sh \
-      --science /path/to/HARPS/science \
-      --calib /path/to/HARPS/calib \
       --work-dir /path/to/work/phase1 \
       --tables-path /path/to/work/tables
+
+By default, the launcher reads from:
+
+    Data/science
+    Data/calib
 
 By default, Phase 2 outputs are written to a folder called:
 
@@ -87,8 +103,6 @@ relative to the directory where the launcher is executed.
 To process only one object for a smoke test:
 
     ./run_telluric_pipeline.sh \
-      --science /path/to/HARPS/science \
-      --calib /path/to/HARPS/calib \
       --work-dir /path/to/work/phase1 \
       --tables-path /path/to/work/tables \
       --star HD39091
@@ -96,8 +110,6 @@ To process only one object for a smoke test:
 To place Phase 2 outputs somewhere else:
 
     ./run_telluric_pipeline.sh \
-      --science /path/to/HARPS/science \
-      --calib /path/to/HARPS/calib \
       --output /path/to/spectra
 
 

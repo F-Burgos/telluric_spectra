@@ -22,8 +22,8 @@ Runs the telluric pipeline in order:
   3) phase2/smoke_object_group_telluric_v2.py
 
 Options:
-  --science PATH          Science root path (default: /mnt/disco_datos/data/HARPS/science)
-  --calib PATH            Calibration root path (default: /mnt/disco_datos/data/HARPS/calib)
+  --science PATH          Science root path (default: <repo_root>/Data/science)
+  --calib PATH            Calibration root path (default: <repo_root>/Data/calib)
   --phase1-dir PATH       Phase1 directory (default: <script_dir>/phase1)
   --phase2-dir PATH       Phase2 directory (default: <script_dir>/phase2)
   --work-dir PATH         Stage 1 Parquet directory (default: <phase1_dir>)
@@ -65,8 +65,8 @@ run_step() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_DIR="$(pwd -P)"
 
-SCIENCE_PATH="/mnt/disco_datos/data/HARPS/science"
-CALIB_PATH="/mnt/disco_datos/data/HARPS/calib"
+SCIENCE_PATH="${SCRIPT_DIR}/Data/science"
+CALIB_PATH="${SCRIPT_DIR}/Data/calib"
 PHASE1_DIR="${SCRIPT_DIR}/phase1"
 PHASE2_DIR="${SCRIPT_DIR}/phase2"
 WORK_DIR=""

@@ -25,8 +25,6 @@ pipeline through the managed environment:
 
 ```bash
 uv run ./run_telluric_pipeline.sh \
-  --science /path/to/HARPS/science \
-  --calib /path/to/HARPS/calib \
   --work-dir /path/to/work/phase1 \
   --tables-path /path/to/output/tables \
   --python python
@@ -39,19 +37,48 @@ source .venv/bin/activate
 ./run_telluric_pipeline.sh --python python
 ```
 
+## Data links
+
+The pipeline expects local data entry points under:
+
+```text
+Data/science
+Data/calib
+```
+
+These should usually be symbolic links to the real HARPS data locations. Create
+or refresh them with:
+
+```bash
+./setup_data_links.sh \
+  --science /path/to/HARPS/science \
+  --calib /path/to/HARPS/calib
+```
+
+Use `--force` to replace existing links:
+
+```bash
+./setup_data_links.sh \
+  --science /path/to/HARPS/science \
+  --calib /path/to/HARPS/calib \
+  --force
+```
+
+The script only creates symbolic links; it does not copy or move the underlying
+data.
+
 ## Run
 
-Provide pointers to the science and calibration trees. By default, Stage 2 writes
-object folders under `./spectra`, relative to the directory where you launch the
-pipeline:
+After `Data/science` and `Data/calib` are configured, run from the project root:
 
 ```bash
 ./run_telluric_pipeline.sh \
-  --science /path/to/HARPS/science \
-  --calib /path/to/HARPS/calib \
   --work-dir /path/to/work/phase1 \
   --tables-path /path/to/output/tables
 ```
+
+By default, Stage 2 writes object folders under `./spectra`, relative to the
+directory where you launch the pipeline.
 
 The science tree is expected to contain one directory per observing night. By
 default Stage 1 opens only `e2ds_A`, CCF-A, S1D-A, and BIS-A FITS products. Use
@@ -68,8 +95,6 @@ orders, pass `--plot-orders`:
 
 ```bash
 ./run_telluric_pipeline.sh \
-  --science /path/to/HARPS/science \
-  --calib /path/to/HARPS/calib \
   --plot-orders 63
 ```
 
