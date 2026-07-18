@@ -111,18 +111,149 @@ Use `--star NAME` for a single-object smoke run and `--no-fresh` to reuse
 existing Stage 1 Parquet files.
 
 Use `--output /path/to/spectra` only when you want Phase 2 somewhere other than
-the launch directory's `spectra/` folder.
+the default `Output/spectra` folder.
 
 Telluric PNG previews are disabled by default. To write previews for specific
 orders, pass `--plot-orders`:
 
 ```bash
-./run_telluric_pipeline.sh \
+uv run ./run_telluric_pipeline.sh \
   --plot-orders 63
 ```
 
 Accepted order selectors are a single order (`63`), a comma-separated list
 (`10,20,63`), a range (`50-55`), or `all`.
+
+## Running Phase 2 for one object
+
+The recommended way to regenerate telluric spectra for one object is still the
+root launcher. It will run Stage 1 if needed, then process only the requested
+canonical `OBJECT` group:
+
+```bash
+uv run ./run_telluric_pipeline.sh \
+  --star Barnards_Star
+```
+
+To reuse an existing Stage 1 table and avoid rescanning the science tree, add
+`--no-fresh`:
+
+```bash
+uv run ./run_telluric_pipeline.sh \
+  --star Barnards_Star \
+  --no-fresh
+```
+
+To also generate diagnostic telluric figures for selected orders:
+
+```bash
+uv run ./run_telluric_pipeline.sh \
+  --star Barnards_Star \
+  --no-fresh \
+  --plot-orders 63
+```
+
+or multiple orders:
+
+```bash
+uv run ./run_telluric_pipeline.sh \
+  --star Barnards_Star \
+  --no-fresh \
+  --plot-orders 10,20,63
+```
+
+The main Phase 2 product is one FITS cube per object:
+
+```text
+Output/spectra/<OBJECT>/<OBJECT>/tell_spec/<OBJECT>_telluric_cube.fits
+```
+
+If Stage 1 has already produced `Output/phase1/metadata_final.parquet`, Phase 2
+can also be called directly:
+
+```bash
+uv run python phase2/smoke_object_group_telluric_v2.py \
+  --parquet Output/phase1/metadata_final.parquet \
+  --template_config phase2/smoke_config.ini \
+  --script phase2/telluric_spectra.py \
+  --output Output/spectra \
+  --calib Data/calib \
+  --science_root Data/science \
+  --tables_path Output/tables \
+  --star Barnards_Star \
+  --plot_orders 63 \
+  --python python
+```
+
+When calling the Phase 2 script directly, note the underscore in
+`--plot_orders`. The root launcher uses `--plot-orders`.
+
+## Metadata QA: sky positions by object
+
+To visually inspect whether one or more canonical `OBJECT` groups occupy the
+expected sky position, use:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object Barnards_Star
+```
+
+By default, the script reads:
+
+```text
+Output/phase1/metadata_final.parquet
+```
+
+and writes a PNG under:
+
+```text
+Output/figures/
+```
+
+The figure and terminal output include basic statistics such as number of
+matched observations, date span, number of nights, number of original `OBJ_ID`
+labels preserved inside each canonical `OBJECT` group, and RA/DEC ranges.
+
+Multiple objects can be plotted together:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object HD20794 \
+  --object HD39091
+```
+
+or as a comma-separated list:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object HD20794,HD39091
+```
+
+By default all observation dates are plotted. Restrict the date range with:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object Barnards_Star \
+  --date-from 2012-01-01 \
+  --date-to 2012-12-31
+```
+
+The date column is chosen automatically from `NIGHT`, `DATE_OBS`, `DATE-OBS`,
+`MJD_OBS`, or `MJD-OBS`. Use `--date-column COLUMN_NAME` if a different table
+needs an explicit date column.
+
+Use `--contains` for case-insensitive substring matching when searching for an
+object label:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object Barnard \
+  --contains
+```
+
+The plot uses `OBJECT` by default and keeps the astronomical RA convention with
+RA increasing toward the left. Use `--object-column OBJ_ID` to inspect original
+FITS object names instead, or `--no-invert-ra` for a normal increasing x-axis.
 
 ## Stage 3 dataset build
 
