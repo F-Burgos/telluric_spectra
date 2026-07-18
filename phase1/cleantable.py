@@ -51,6 +51,49 @@ REMAINING_PATH = args.remaining_path if args.remaining_path else os.path.join(BA
 RADIUS_NEAR = args.radius_near
 
 
+def normalize_object_token(value):
+    """Normalize object labels for narrow, explicit alias overrides."""
+    return ''.join(char for char in str(value).lower() if char.isalnum())
+
+
+KNOWN_OBJECT_ALIASES = {
+    "Barnards_Star": {
+        normalize_object_token(alias)
+        for alias in [
+            "Barnards_Star",
+            "Barnards Star",
+            "Barnards-star",
+            "Barnard's Star",
+            "NAME Barnards star",
+            "NAMEBarnardsstar",
+            "Gl699",
+            "GJ699",
+        ]
+    },
+}
+
+
+def apply_known_object_aliases(metadata_final):
+    """Apply narrow OBJECT fixes while preserving OBJ_ID as original provenance."""
+    if metadata_final.empty:
+        return metadata_final
+
+    object_tokens = metadata_final["OBJECT"].map(normalize_object_token)
+    obj_id_tokens = metadata_final["OBJ_ID"].map(normalize_object_token)
+
+    for canonical_object, alias_tokens in KNOWN_OBJECT_ALIASES.items():
+        mask = object_tokens.isin(alias_tokens) | obj_id_tokens.isin(alias_tokens)
+        n_changed = int((mask & (metadata_final["OBJECT"] != canonical_object)).sum())
+        if n_changed:
+            print(
+                f"Alias conocido aplicado: {canonical_object} "
+                f"({n_changed} filas OBJECT actualizadas; OBJ_ID preservado)."
+            )
+        metadata_final.loc[mask, "OBJECT"] = canonical_object
+
+    return metadata_final
+
+
 # =========================
 # Paso 0: limpiar si es necesario
 # =========================
@@ -282,6 +325,8 @@ def build_final_metadata():
             print(f"Filas eliminadas por duplicados en PATH: {before - after}")
     else:
         metadata_final = pd.DataFrame(columns=metadata.columns)
+
+    metadata_final = apply_known_object_aliases(metadata_final)
 
     # Print the number of clusters formed
     print(f"Número de clusters formados: {len(metadata_final_list)}")
