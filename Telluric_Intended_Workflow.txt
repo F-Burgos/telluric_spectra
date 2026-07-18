@@ -15,6 +15,7 @@ The maintained code is in:
 
     phase1/
     phase2/
+    phase3/
     run_pipeline.sh
 
 Other historical folders in the repository should be treated as deprecated
@@ -52,6 +53,7 @@ High-level pipeline
 -------------------
 
 The pipeline has two completed stages.
+Stage 3 has started as the dataset-packaging/indexing stage.
 
 Stage 1:
 
@@ -64,7 +66,8 @@ Stage 2:
 
 Stage 3:
 
-    Not designed yet.
+    Repackage object-oriented telluric cubes into date-oriented dataset cubes
+    under Data/telluric/ and build an exposure-level cube index table.
 
 
 Canonical launcher
@@ -85,26 +88,22 @@ The data are not copied or moved. Use --force if the links need to be replaced.
 
 Then run the maintained pipeline from the project root with:
 
-    ./run_telluric_pipeline.sh \
-      --work-dir /path/to/work/phase1 \
-      --tables-path /path/to/work/tables
+    ./run_telluric_pipeline.sh
 
 By default, the launcher reads from:
 
     Data/science
     Data/calib
 
-By default, Phase 2 outputs are written to a folder called:
+By default, generated working outputs are written under:
 
-    ./spectra/
-
-relative to the directory where the launcher is executed.
+    Output/phase1
+    Output/spectra
+    Output/tables
 
 To process only one object for a smoke test:
 
     ./run_telluric_pipeline.sh \
-      --work-dir /path/to/work/phase1 \
-      --tables-path /path/to/work/tables \
       --star HD39091
 
 To place Phase 2 outputs somewhere else:
@@ -213,15 +212,15 @@ Phase 2 output structure
 
 For an object named OBJECT, Phase 2 writes under:
 
-    spectra/OBJECT/
+    Output/spectra/OBJECT/
 
 The main telluric products are written under:
 
-    spectra/OBJECT/OBJECT/tell_spec/
+    Output/spectra/OBJECT/OBJECT/tell_spec/
 
 For each object, the pipeline writes one telluric FITS cube:
 
-    spectra/OBJECT/OBJECT/tell_spec/OBJECT_telluric_cube.fits
+    Output/spectra/OBJECT/OBJECT/tell_spec/OBJECT_telluric_cube.fits
 
 Each telluric FITS file stores a 3D cube:
 
@@ -248,7 +247,7 @@ Other Phase 2 outputs
 
 Phase 2 also writes auxiliary files:
 
-    spectra/OBJECT/OBJECT_HARPS_..._template.npz
+    Output/spectra/OBJECT/OBJECT_HARPS_..._template.npz
 
 This stores template-related arrays, including wavelength grid, stellar
 template, telluric template, telluric noise, mask, trim values, and median
@@ -256,14 +255,14 @@ airmass.
 
 If requested with --plot-orders, quick-look plots are written as:
 
-    spectra/OBJECT/OBJECT/tell_spec/<exposure>_orderNNN_telluric.png
+    Output/spectra/OBJECT/OBJECT/tell_spec/<exposure>_orderNNN_telluric.png
 
 These PNG files are previews of the selected order or orders. No PNG files are
 written by default.
 
 The wrapper writes a summary file:
 
-    spectra/OBJECT/processing_summary.json
+    Output/spectra/OBJECT/processing_summary.json
 
 This records:
 
@@ -275,8 +274,51 @@ This records:
 
 If problems occur, the wrapper may also write:
 
-    spectra/OBJECT/missing_calibrations.txt
-    spectra/OBJECT/telluric_run_failed.txt
+    Output/spectra/OBJECT/missing_calibrations.txt
+    Output/spectra/OBJECT/telluric_run_failed.txt
+
+
+Stage 3: date-oriented dataset and index table
+----------------------------------------------
+
+The Stage 3 script is:
+
+    phase3/build_telluric_dataset.py
+
+or through the root launcher:
+
+    ./run_stage3_build_dataset.sh --overwrite
+
+Stage 3 reads:
+
+    Output/phase1/metadata_final.parquet
+    Output/spectra/
+
+and writes date-oriented telluric cubes under:
+
+    Data/telluric/NIGHT/OBJECT_NIGHT_telluric_cube.fits
+
+This matters because Phase 2 cubes are object-oriented and may contain
+exposures from multiple observing nights. Stage 3 splits each object cube by
+NIGHT before writing the final dataset product.
+
+Stage 3 also writes an exposure-level table:
+
+    Output/stage3/telluric_cube_index.parquet
+    Output/stage3/telluric_cube_index.csv
+
+Each row contains:
+
+    OBJECT
+    OBJ_ID
+    NIGHT
+    SOURCE_E2DS
+    TELLURIC_CUBE_REL_PATH
+    CUBE_EXPOSURE_INDEX
+    atmospheric/header quantities from the original e2ds_A FITS file
+
+The atmospheric/header quantities include airmass, altitude, seeing, pressure,
+humidity, temperature, wind, BERV, SN60, and moon coordinates.
 
 
 Compact workflow summary
@@ -286,7 +328,9 @@ Compact workflow summary
         -> metadata_raw.parquet
         -> metadata_final.parquet
         -> per-object Naira runs
-        -> spectra/OBJECT/OBJECT/tell_spec/OBJECT_telluric_cube.fits
+        -> Output/spectra/OBJECT/OBJECT/tell_spec/OBJECT_telluric_cube.fits
+        -> Data/telluric/NIGHT/OBJECT_NIGHT_telluric_cube.fits
+        -> Output/stage3/telluric_cube_index.parquet
 
 The principal science product of the completed workflow is:
 

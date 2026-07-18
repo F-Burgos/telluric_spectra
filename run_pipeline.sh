@@ -26,11 +26,11 @@ Options:
   --calib PATH            Calibration root path (default: <repo_root>/Data/calib)
   --phase1-dir PATH       Phase1 directory (default: <script_dir>/phase1)
   --phase2-dir PATH       Phase2 directory (default: <script_dir>/phase2)
-  --work-dir PATH         Stage 1 Parquet directory (default: <phase1_dir>)
+  --work-dir PATH         Stage 1 Parquet directory (default: <repo_root>/Output/phase1)
   --template-config PATH  Template config for smoke script (default: <phase2_dir>/smoke_config.ini)
   --telluric-script PATH  Path to telluric_spectra.py (default: <phase2_dir>/telluric_spectra.py)
-  --tables-path PATH      Path for tables output (default: <phase2_dir>/spectra_results)
-  --output PATH           Output base for object groups (default: <current_dir>/spectra)
+  --tables-path PATH      Path for tables output (default: <repo_root>/Output/tables)
+  --output PATH           Output base for object groups (default: <repo_root>/Output/spectra)
   --star NAME             Process only one star (default: all)
   --products LIST         FITS products scanned in phase 1
                           (default: e2ds_A,ccf_A,s1d_A,bis_A)
@@ -162,13 +162,13 @@ if [ -z "${TELLURIC_SCRIPT}" ]; then
   TELLURIC_SCRIPT="${PHASE2_DIR}/telluric_spectra.py"
 fi
 if [ -z "${TABLES_PATH}" ]; then
-  TABLES_PATH="${PHASE2_DIR}/spectra_results"
+  TABLES_PATH="${SCRIPT_DIR}/Output/tables"
 fi
 if [ -z "${OUTPUT_BASE}" ]; then
-  OUTPUT_BASE="${RUN_DIR}/spectra"
+  OUTPUT_BASE="${SCRIPT_DIR}/Output/spectra"
 fi
 if [ -z "${WORK_DIR}" ]; then
-  WORK_DIR="${PHASE1_DIR}"
+  WORK_DIR="${SCRIPT_DIR}/Output/phase1"
 fi
 
 RAW_SCRIPT="${PHASE1_DIR}/raw_table.py"

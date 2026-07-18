@@ -25,8 +25,6 @@ pipeline through the managed environment:
 
 ```bash
 uv run ./run_telluric_pipeline.sh \
-  --work-dir /path/to/work/phase1 \
-  --tables-path /path/to/output/tables \
   --python python
 ```
 
@@ -72,13 +70,16 @@ data.
 After `Data/science` and `Data/calib` are configured, run from the project root:
 
 ```bash
-./run_telluric_pipeline.sh \
-  --work-dir /path/to/work/phase1 \
-  --tables-path /path/to/output/tables
+./run_telluric_pipeline.sh
 ```
 
-By default, Stage 2 writes object folders under `./spectra`, relative to the
-directory where you launch the pipeline.
+By default, generated working outputs are written under:
+
+```text
+Output/phase1
+Output/spectra
+Output/tables
+```
 
 The science tree is expected to contain one directory per observing night. By
 default Stage 1 opens only `e2ds_A`, CCF-A, S1D-A, and BIS-A FITS products. Use
@@ -101,6 +102,33 @@ orders, pass `--plot-orders`:
 Accepted order selectors are a single order (`63`), a comma-separated list
 (`10,20,63`), a range (`50-55`), or `all`.
 
+## Stage 3 dataset build
+
+Stage 2 writes object-oriented cubes. Stage 3 repackages them into a
+date-oriented dataset under:
+
+```text
+Data/telluric/<NIGHT>/<OBJECT>_<NIGHT>_telluric_cube.fits
+```
+
+Run Stage 3 with:
+
+```bash
+uv run ./run_stage3_build_dataset.sh --overwrite
+```
+
+This also writes:
+
+```text
+Output/stage3/telluric_cube_index.parquet
+Output/stage3/telluric_cube_index.csv
+Output/stage3/telluric_stage3_manifest.json
+```
+
+The index table has one row per exposure. Each row points to its Stage 3 cube
+and exposure index inside that cube, plus selected atmospheric/header metadata
+from the source `e2ds_A` FITS file.
+
 ## Principal outputs
 
 - `metadata_raw.parquet`: selected product inventory; `OBJ_ID` preserves the
@@ -108,10 +136,15 @@ Accepted order selectors are a single order (`63`), a comma-separated list
   root.
 - `metadata.parquet`: filtered working metadata.
 - `metadata_final.parquet`: grouped Stage 1 table consumed by Stage 2.
-- `spectra/<OBJECT>/<OBJECT>/tell_spec/<OBJECT>_telluric_cube.fits`: one
-  atmospheric transmission cube per object, shaped
+- `Output/spectra/<OBJECT>/<OBJECT>/tell_spec/<OBJECT>_telluric_cube.fits`: one
+  object-oriented atmospheric transmission cube, shaped
   `(exposure, order, pixel)`.
-- `spectra/<OBJECT>/processing_summary.json`: expected, valid, missing,
+- `Data/telluric/<NIGHT>/<OBJECT>_<NIGHT>_telluric_cube.fits`: one
+  date-oriented atmospheric transmission cube, shaped
+  `(exposure, order, pixel)`.
+- `Output/stage3/telluric_cube_index.parquet`: exposure-level index for the
+  date-oriented telluric cubes.
+- `Output/spectra/<OBJECT>/processing_summary.json`: expected, valid, missing,
   and dimensionally invalid outputs for that object.
 
 The original science header from the first exposure is retained in every
