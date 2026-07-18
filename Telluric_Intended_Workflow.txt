@@ -6,7 +6,7 @@ Purpose
 
 This project builds a telluric-spectrum dataset from HARPS observations.
 
-The telluric spectrum is the atmospheric transmission spectrum imprinted on the
+The telluric spectrum is the atmospheric transmission spectrum imprinted on an
 astronomical observation. The project is therefore focused on extracting a
 consistent atmospheric product from many science observations, not on analyzing
 the stellar spectra themselves.
@@ -16,10 +16,32 @@ The maintained code is in:
     phase1/
     phase2/
     phase3/
+    tools/
     run_pipeline.sh
+    run_telluric_pipeline.sh
+    run_stage3_build_dataset.sh
 
-Other historical folders in the repository should be treated as deprecated
-unless there is a specific reason to inspect them.
+Historical folders and local generated products should be treated as deprecated
+or ignored unless there is a specific reason to inspect them.
+
+
+Environment
+-----------
+
+The project uses uv to reproduce the Python environment.
+
+From the repository root:
+
+    uv sync
+
+Run scripts through the uv environment:
+
+    uv run ./run_telluric_pipeline.sh
+    uv run ./run_stage3_build_dataset.sh --overwrite
+
+Quick environment sanity check:
+
+    uv run python -c "import numpy, pandas, astropy, scipy; print('env ok')"
 
 
 Data scale and assumptions
@@ -40,20 +62,55 @@ workflow are:
 
 The object names written in FITS headers are inconsistent by nature. Different
 observing teams may have used different names for the same astronomical object.
-The pipeline assigns a practical canonical object name while preserving the
-original observation name.
+The pipeline assigns a practical canonical object name in OBJECT while
+preserving the original observation name in OBJ_ID.
 
 The current RA/DEC grouping is intentionally fast. It may occasionally split a
 real object into more than one group, but this is acceptable for the current
 science goal because Phase 2 processes and filters by object name, and the
 project is focused on telluric spectra rather than perfect stellar clustering.
 
+Known narrow alias fixes can be applied at the end of cleantable.py. At the
+moment, Barnard's Star aliases are mapped into:
+
+    OBJECT = Barnards_Star
+
+while OBJ_ID is preserved as the original FITS object label.
+
+
+Portable data layout
+--------------------
+
+The pipeline expects local data entry points under:
+
+    Data/science
+    Data/calib
+
+These should normally be symbolic links to the real HARPS data locations. Create
+or refresh them with:
+
+    ./setup_data_links.sh \
+      --science /path/to/HARPS/science \
+      --calib /path/to/HARPS/calib
+
+Use --force to replace existing links:
+
+    ./setup_data_links.sh \
+      --science /path/to/HARPS/science \
+      --calib /path/to/HARPS/calib \
+      --force
+
+The script only creates symbolic links. It does not copy or move the underlying
+science/calibration data.
+
+Check the configured links with:
+
+    readlink Data/science
+    readlink Data/calib
+
 
 High-level pipeline
 -------------------
-
-The pipeline has two completed stages.
-Stage 3 has started as the dataset-packaging/indexing stage.
 
 Stage 1:
 
@@ -62,38 +119,32 @@ Stage 1:
 Stage 2:
 
     Use the final metadata table to run Naira object-by-object and generate
-    telluric spectra.
+    all-order telluric FITS cubes.
 
 Stage 3:
 
     Repackage object-oriented telluric cubes into date-oriented dataset cubes
     under Data/telluric/ and build an exposure-level cube index table.
 
+QA tools:
+
+    Inspect metadata grouping quality, including sky-position plots for one or
+    more OBJECT groups.
+
 
 Canonical launcher
 ------------------
 
-First configure the local data entry points:
+After Data/science and Data/calib are configured, run the maintained pipeline
+from the project root with:
 
-    ./setup_data_links.sh \
-      --science /path/to/HARPS/science \
-      --calib /path/to/HARPS/calib
+    uv run ./run_telluric_pipeline.sh
 
-This creates symbolic links:
+This runs:
 
-    Data/science -> /path/to/HARPS/science
-    Data/calib   -> /path/to/HARPS/calib
-
-The data are not copied or moved. Use --force if the links need to be replaced.
-
-Then run the maintained pipeline from the project root with:
-
-    ./run_telluric_pipeline.sh
-
-By default, the launcher reads from:
-
-    Data/science
-    Data/calib
+    1. phase1/raw_table.py
+    2. phase1/cleantable.py
+    3. phase2/smoke_object_group_telluric_v2.py
 
 By default, generated working outputs are written under:
 
@@ -103,12 +154,18 @@ By default, generated working outputs are written under:
 
 To process only one object for a smoke test:
 
-    ./run_telluric_pipeline.sh \
+    uv run ./run_telluric_pipeline.sh \
       --star HD39091
+
+To reuse existing Stage 1 metadata and avoid rescanning the science tree:
+
+    uv run ./run_telluric_pipeline.sh \
+      --star HD39091 \
+      --no-fresh
 
 To place Phase 2 outputs somewhere else:
 
-    ./run_telluric_pipeline.sh \
+    uv run ./run_telluric_pipeline.sh \
       --output /path/to/spectra
 
 
@@ -135,7 +192,9 @@ Important columns include:
     PATH          Original or resolved file path
     REL_PATH      Path relative to the science root, useful for portability
     PRODUCT_TYPE  Product label such as e2ds_A, ccf_A, s1d_A, or bis_A
+    OBJECT        Canonical object group used by the pipeline
     OBJ_ID        Original object name from the FITS header
+    NIGHT         Observation night directory
 
 If a complete FITS inventory is ever needed, use:
 
@@ -161,12 +220,10 @@ and produces:
 
 The important output for Phase 2 is:
 
-    metadata_final.parquet
+    Output/phase1/metadata_final.parquet
 
 This table contains the useful selected products grouped under a practical
-canonical OBJECT name.
-
-The original object name is preserved separately in:
+canonical OBJECT name. The original object name is preserved separately in:
 
     OBJ_ID
 
@@ -180,12 +237,12 @@ The Phase 2 wrapper is:
 
 For each OBJECT in metadata_final.parquet, it:
 
-    1. Creates an object folder under spectra/
+    1. Creates an object folder under Output/spectra/
     2. Symlinks that object's selected science products
     3. Locates and symlinks the required calibration files
     4. Writes an object-specific .ini file
     5. Calls Naira through telluric_spectra.py
-    6. Validates that expected telluric outputs were created
+    6. Validates that expected telluric cube outputs were created
 
 The maintained Naira script is:
 
@@ -198,13 +255,18 @@ The current template configuration uses:
 as requested for the current reduction specification.
 
 Telluric preview plots are disabled by default. To request plots, pass
---plot-orders to the launcher with a single order, a comma-separated list, a
-range, or all:
+--plot-orders to the root launcher with a single order, a comma-separated list,
+a range, or all:
 
     --plot-orders 63
     --plot-orders 10,20,63
     --plot-orders 50-55
     --plot-orders all
+
+When calling phase2/smoke_object_group_telluric_v2.py directly, the equivalent
+argument name is:
+
+    --plot_orders
 
 
 Phase 2 output structure
@@ -226,13 +288,12 @@ Each telluric FITS file stores a 3D cube:
 
     n_exposures x n_orders x n_pixels
 
-For a local HARPS object with two accepted exposures, this shape is:
+For local HARPS e2ds_A inputs, this is usually:
 
-    2 x 72 x 4096
+    n_exposures x 72 x 4096
 
 The FITS header includes:
 
-    TELLURIC = True
     TELLCUBE = True
     NSPECTRA
     NORDERS
@@ -267,6 +328,7 @@ The wrapper writes a summary file:
 This records:
 
     input_e2ds
+    telluric_cube
     telluric_outputs
     missing_outputs
     invalid_outputs
@@ -285,9 +347,9 @@ The Stage 3 script is:
 
     phase3/build_telluric_dataset.py
 
-or through the root launcher:
+Run it through the root launcher:
 
-    ./run_stage3_build_dataset.sh --overwrite
+    uv run ./run_stage3_build_dataset.sh --overwrite
 
 Stage 3 reads:
 
@@ -302,35 +364,87 @@ This matters because Phase 2 cubes are object-oriented and may contain
 exposures from multiple observing nights. Stage 3 splits each object cube by
 NIGHT before writing the final dataset product.
 
-Stage 3 also writes an exposure-level table:
+Stage 3 also writes:
 
     Output/stage3/telluric_cube_index.parquet
     Output/stage3/telluric_cube_index.csv
+    Output/stage3/telluric_stage3_manifest.json
 
-Each row contains:
+The index table has one row per exposure. Each row contains:
 
     OBJECT
     OBJ_ID
     NIGHT
     SOURCE_E2DS
+    SOURCE_PATH
     TELLURIC_CUBE_REL_PATH
+    TELLURIC_CUBE_PATH
     CUBE_EXPOSURE_INDEX
     atmospheric/header quantities from the original e2ds_A FITS file
 
 The atmospheric/header quantities include airmass, altitude, seeing, pressure,
-humidity, temperature, wind, BERV, SN60, and moon coordinates.
+humidity, temperature, wind, BERV, SN60, moon coordinates, RA/DEC, DATE_OBS,
+and MJD_OBS when available.
+
+
+Metadata QA: sky-position plots
+-------------------------------
+
+The metadata QA plotting utility is:
+
+    tools/plot_object_sky_positions.py
+
+It reads a metadata table, filters one or more OBJECT groups, and plots their
+RA/DEC positions. By default it reads:
+
+    Output/phase1/metadata_final.parquet
+
+and writes PNG files under:
+
+    Output/figures/
+
+Single-object example:
+
+    uv run python tools/plot_object_sky_positions.py \
+      --object HD10700
+
+Multiple-object example:
+
+    uv run python tools/plot_object_sky_positions.py \
+      --object HD10700,HD190248,HD20794
+
+Date-restricted example:
+
+    uv run python tools/plot_object_sky_positions.py \
+      --object Barnards_Star \
+      --date-from 2012-01-01 \
+      --date-to 2012-12-31
+
+The plot includes a side panel with basic statistics:
+
+    number of matched observations
+    date span
+    number of nights
+    number of original OBJ_ID labels
+    RA/DEC range per object
+
+Single-object plots are the best way to inspect grouping quality. Multi-object
+plots are useful for global sanity checks, but far-apart targets naturally
+compress each object's local scatter into a small cluster.
 
 
 Compact workflow summary
 ------------------------
 
     HARPS science tree
-        -> metadata_raw.parquet
-        -> metadata_final.parquet
+        -> Output/phase1/metadata_raw.parquet
+        -> Output/phase1/metadata.parquet
+        -> Output/phase1/metadata_final.parquet
         -> per-object Naira runs
         -> Output/spectra/OBJECT/OBJECT/tell_spec/OBJECT_telluric_cube.fits
         -> Data/telluric/NIGHT/OBJECT_NIGHT_telluric_cube.fits
         -> Output/stage3/telluric_cube_index.parquet
+        -> optional QA plots under Output/figures/
 
 The principal science product of the completed workflow is:
 
