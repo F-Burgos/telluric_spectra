@@ -255,6 +255,34 @@ The plot uses `OBJECT` by default and keeps the astronomical RA convention with
 RA increasing toward the left. Use `--object-column OBJ_ID` to inspect original
 FITS object names instead, or `--no-invert-ra` for a normal increasing x-axis.
 
+### Example sky-position plots
+
+Single-object plots are useful for checking whether one canonical `OBJECT`
+group is internally compact on the sky:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object HD10700 \
+  --output Output/figures/sky_positions_HD10700.png
+```
+
+![Example sky-position plot for HD10700](docs/figures/sky_positions_HD10700.png)
+
+Multiple-object plots are useful for a broader sanity check of where different
+targets sit on the sky:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object HD10700,HD190248,HD20794 \
+  --output Output/figures/sky_positions_top3.png
+```
+
+![Example sky-position plot for the three most observed local objects](docs/figures/sky_positions_top3.png)
+
+For diagnosing grouping quality, prefer single-object plots. When targets are
+far apart, multi-object plots naturally compress each object's local scatter
+into a small cluster.
+
 ## Stage 3 dataset build
 
 Stage 2 writes object-oriented cubes. Stage 3 repackages them into a

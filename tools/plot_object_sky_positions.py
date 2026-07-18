@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import textwrap
 from pathlib import Path
 
 import pandas as pd
@@ -140,40 +141,62 @@ def format_date_span(rows: pd.DataFrame) -> str:
     return f"{dates.min().date()} to {dates.max().date()}"
 
 
-def add_group_statistics(
-    ax,
+def add_side_statistics(
+    info_ax,
     group: pd.DataFrame,
     object_column: str,
     date_column: str | None,
 ) -> None:
-    """Add a compact statistics box to the axes."""
+    """Add observation statistics in a dedicated side panel."""
     lines = [
+        "Statistics",
+        "",
         f"Total observations: {len(group)}",
         f"Date column: {date_column or 'unavailable'}",
         f"Date span: {format_date_span(group)}",
     ]
-    for object_name, object_rows in group.groupby(object_column, sort=True):
-        line = f"{object_name}: {len(object_rows)} obs"
-        if "NIGHT" in object_rows.columns:
-            line += f", {object_rows['NIGHT'].nunique()} nights"
-        if "OBJ_ID" in object_rows.columns:
-            line += f", {object_rows['OBJ_ID'].nunique()} OBJ_ID"
-        line += f", {format_date_span(object_rows)}"
-        line += (
-            f", RA {object_rows['RA'].min():.6f}-{object_rows['RA'].max():.6f}"
-            f", DEC {object_rows['DEC'].min():.6f}-{object_rows['DEC'].max():.6f}"
-        )
-        lines.append(line)
 
-    ax.text(
-        0.02,
+    if "NIGHT" in group.columns:
+        lines.append(f"Unique nights: {group['NIGHT'].nunique()}")
+    if "OBJ_ID" in group.columns:
+        lines.append(f"Unique OBJ_ID: {group['OBJ_ID'].nunique()}")
+
+    lines.extend(["", "Objects"])
+    for object_name, object_rows in group.groupby(object_column, sort=True):
+        object_lines = [f"{object_name}:"]
+        object_lines.append(f"  observations: {len(object_rows)}")
+        if "NIGHT" in object_rows.columns:
+            object_lines.append(f"  nights: {object_rows['NIGHT'].nunique()}")
+        if "OBJ_ID" in object_rows.columns:
+            object_lines.append(f"  OBJ_ID values: {object_rows['OBJ_ID'].nunique()}")
+        object_lines.append(f"  date span: {format_date_span(object_rows)}")
+        object_lines.append(
+            f"  RA: {object_rows['RA'].min():.6f} to {object_rows['RA'].max():.6f}"
+        )
+        object_lines.append(
+            f"  DEC: {object_rows['DEC'].min():.6f} to {object_rows['DEC'].max():.6f}"
+        )
+        lines.extend(object_lines)
+
+    wrapped_lines = []
+    for line in lines:
+        if line.startswith("  "):
+            wrapped_lines.extend(
+                textwrap.wrap(line, width=34, subsequent_indent="    ") or [line]
+            )
+        else:
+            wrapped_lines.extend(textwrap.wrap(line, width=34) or [line])
+
+    info_ax.axis("off")
+    info_ax.text(
+        0.0,
         0.98,
-        "\n".join(lines),
-        transform=ax.transAxes,
+        "\n".join(wrapped_lines),
+        transform=info_ax.transAxes,
         va="top",
         ha="left",
-        fontsize=9,
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.82},
+        fontsize=9.5,
+        linespacing=1.25,
     )
 
 
@@ -321,7 +344,13 @@ def main() -> int:
         output_path = PROJECT_DIR / "Output" / "figures" / f"sky_positions_{label}.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
+    fig, (ax, info_ax) = plt.subplots(
+        1,
+        2,
+        figsize=(12, 6),
+        constrained_layout=True,
+        gridspec_kw={"width_ratios": [3.0, 1.35]},
+    )
 
     for object_name, object_rows in selected.groupby(args.object_column, sort=True):
         ax.scatter(
@@ -340,8 +369,7 @@ def main() -> int:
         title += f" ({args.date_from or 'beginning'} to {args.date_to or 'end'})"
     ax.set_title(title)
     ax.grid(True, alpha=0.25)
-    ax.legend(loc="best", fontsize=9)
-    add_group_statistics(ax, selected, args.object_column, date_column)
+    add_side_statistics(info_ax, selected, args.object_column, date_column)
 
     if not args.no_invert_ra:
         ax.invert_xaxis()

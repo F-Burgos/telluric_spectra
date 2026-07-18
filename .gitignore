@@ -40,6 +40,7 @@ spectra_results/
 # Generated figures/reports from exploratory runs
 *.png
 *.pdf
+!docs/figures/*.png
 
 # Windows alternate data stream artifacts copied into Linux
 *:Zone.Identifier
