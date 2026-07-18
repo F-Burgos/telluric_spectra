@@ -263,7 +263,7 @@ group is internally compact on the sky:
 ```bash
 uv run python tools/plot_object_sky_positions.py \
   --object HD10700 \
-  --output Output/figures/sky_positions_HD10700.png
+  --output docs/figures/sky_positions_HD10700.png
 ```
 
 ![Example sky-position plot for HD10700](docs/figures/sky_positions_HD10700.png)
@@ -274,7 +274,7 @@ targets sit on the sky:
 ```bash
 uv run python tools/plot_object_sky_positions.py \
   --object HD10700,HD190248,HD20794 \
-  --output Output/figures/sky_positions_top3.png
+  --output docs/figures/sky_positions_top3.png
 ```
 
 ![Example sky-position plot for the three most observed local objects](docs/figures/sky_positions_top3.png)

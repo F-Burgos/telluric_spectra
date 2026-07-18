@@ -369,6 +369,7 @@ def main() -> int:
         title += f" ({args.date_from or 'beginning'} to {args.date_to or 'end'})"
     ax.set_title(title)
     ax.grid(True, alpha=0.25)
+    ax.legend(loc="best", fontsize=9)
     add_side_statistics(info_ax, selected, args.object_column, date_column)
 
     if not args.no_invert_ra:
