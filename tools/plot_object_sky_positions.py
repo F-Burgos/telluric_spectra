@@ -141,6 +141,13 @@ def format_date_span(rows: pd.DataFrame) -> str:
     return f"{dates.min().date()} to {dates.max().date()}"
 
 
+def pluralize(count: int, singular: str, plural: str | None = None) -> str:
+    """Return a count with a simple English singular/plural label."""
+    if count == 1:
+        return f"{count} {singular}"
+    return f"{count} {plural or singular + 's'}"
+
+
 def add_side_statistics(
     info_ax,
     group: pd.DataFrame,
@@ -398,15 +405,17 @@ def main() -> int:
     )
     print("Per-object statistics:")
     for object_name, object_rows in selected.groupby(args.object_column, sort=True):
-        line = f"  - {object_name}: {len(object_rows)} observations"
+        line = f"  - {object_name}: {pluralize(len(object_rows), 'observation')}"
         if "NIGHT" in object_rows.columns:
-            line += f", {object_rows['NIGHT'].nunique()} nights"
+            line += f", {pluralize(object_rows['NIGHT'].nunique(), 'night')}"
         if "OBJ_ID" in object_rows.columns:
-            line += f", {object_rows['OBJ_ID'].nunique()} original OBJ_ID values"
+            line += (
+                f", {pluralize(object_rows['OBJ_ID'].nunique(), 'original OBJ_ID value')}"
+            )
         line += f", date span {format_date_span(object_rows)}"
         line += (
-            f", RA {object_rows['RA'].min():.6f}-{object_rows['RA'].max():.6f}"
-            f", DEC {object_rows['DEC'].min():.6f}-{object_rows['DEC'].max():.6f}"
+            f", RA {object_rows['RA'].min():.6f} to {object_rows['RA'].max():.6f}"
+            f", DEC {object_rows['DEC'].min():.6f} to {object_rows['DEC'].max():.6f}"
         )
         print(line)
 
