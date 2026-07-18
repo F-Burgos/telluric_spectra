@@ -16,6 +16,15 @@ The maintained implementation now lives at the repository root: `phase1/`,
 
 The recommended environment manager is `uv`.
 
+If `uv` is not available on the machine, install it first:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc
+```
+
+From the repository root, create/synchronize the Python environment:
+
 ```bash
 uv sync
 ```
@@ -33,6 +42,12 @@ Alternatively, activate the environment first:
 ```bash
 source .venv/bin/activate
 ./run_telluric_pipeline.sh --python python
+```
+
+Quick environment sanity check:
+
+```bash
+uv run python -c "import numpy, pandas, astropy, scipy; print('env ok')"
 ```
 
 ## Data links
@@ -65,12 +80,19 @@ Use `--force` to replace existing links:
 The script only creates symbolic links; it does not copy or move the underlying
 data.
 
+Check that the links point where expected:
+
+```bash
+readlink Data/science
+readlink Data/calib
+```
+
 ## Run
 
 After `Data/science` and `Data/calib` are configured, run from the project root:
 
 ```bash
-./run_telluric_pipeline.sh
+uv run ./run_telluric_pipeline.sh
 ```
 
 By default, generated working outputs are written under:
