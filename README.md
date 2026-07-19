@@ -370,6 +370,44 @@ Run without automatically opening a browser:
 uv run python tools/metadata_browser.py --no-browser
 ```
 
+When running on a remote server, keep the browser bound to localhost on the
+server and access it through an SSH tunnel.
+
+On the server:
+
+```bash
+cd /path/to/telluric_spectra
+uv run python tools/metadata_browser.py \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --no-browser
+```
+
+On your local machine, in a second terminal:
+
+```bash
+ssh -L 8765:127.0.0.1:8765 user@server
+```
+
+Then open this URL locally:
+
+```text
+http://127.0.0.1:8765/
+```
+
+If port `8765` is already busy on your local machine, choose another local port
+on the left side of the tunnel:
+
+```bash
+ssh -L 8770:127.0.0.1:8765 user@server
+```
+
+and open:
+
+```text
+http://127.0.0.1:8770/
+```
+
 Use a different local port if the default is already busy:
 
 ```bash
