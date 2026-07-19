@@ -242,6 +242,38 @@ The date column is chosen automatically from `NIGHT`, `DATE_OBS`, `DATE-OBS`,
 `MJD_OBS`, or `MJD-OBS`. Use `--date-column COLUMN_NAME` if a different table
 needs an explicit date column.
 
+For Stage 1 metadata, `NIGHT` is the observing-night directory. To filter by
+observing night explicitly, use `--date-column NIGHT`.
+
+To plot a single observing night, use the same date for both limits:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object HD10700 \
+  --date-column NIGHT \
+  --date-from 2015-10-03 \
+  --date-to 2015-10-03
+```
+
+For an open-ended night selection, omit one bound:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object HD10700 \
+  --date-column NIGHT \
+  --date-from 2015-10-03
+```
+
+For a bounded night range, provide both limits:
+
+```bash
+uv run python tools/plot_object_sky_positions.py \
+  --object HD10700 \
+  --date-column NIGHT \
+  --date-from 2015-10-02 \
+  --date-to 2015-10-03
+```
+
 Use `--contains` for case-insensitive substring matching when searching for an
 object label:
 
