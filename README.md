@@ -315,6 +315,70 @@ For diagnosing grouping quality, prefer single-object plots. When targets are
 far apart, multi-object plots naturally compress each object's local scatter
 into a small cluster.
 
+## Interactive Table query
+
+Use the interactive metadata browser to query Parquet tables without writing
+one-off Python snippets.
+
+Start the browser with the default Stage 1 final metadata table:
+
+```bash
+uv run python tools/metadata_browser.py
+```
+
+Then open the displayed local URL, usually:
+
+```text
+http://127.0.0.1:8765/
+```
+
+Default table:
+
+```text
+Output/phase1/metadata_final.parquet
+```
+
+Use the web form to filter rows by:
+
+- star/object query;
+- `OBJECT` or `OBJ_ID`;
+- match mode: normalized contains, text contains, or exact;
+- `PRODUCT_TYPE`;
+- exact `NIGHT`;
+- night/date range;
+- rows per page.
+
+The normalized match mode is useful for inconsistent object labels because
+spaces, underscores, punctuation, and case are ignored. Matching is always based
+on values present in the selected metadata table; no object names are hardcoded.
+
+After Stage 3 has generated its first data products, query the Stage 3 cube
+index table the same way:
+
+```bash
+uv run python tools/metadata_browser.py \
+  --metadata Output/stage3/telluric_cube_index.parquet
+```
+
+This is useful for inspecting the final date-oriented telluric dataset because
+the Stage 3 table includes cube paths, exposure indices inside each cube,
+source `e2ds_A` references, and selected atmospheric/header metadata.
+
+Run without automatically opening a browser:
+
+```bash
+uv run python tools/metadata_browser.py --no-browser
+```
+
+Use a different local port if the default is already busy:
+
+```bash
+uv run python tools/metadata_browser.py \
+  --port 8770
+```
+
+The browser also provides a filtered CSV download for the current query.
+
 ## Stage 3 dataset build
 
 Stage 2 writes object-oriented cubes. Stage 3 repackages them into a

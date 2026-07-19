@@ -12,6 +12,7 @@ __pycache__/
 .codex/
 .agents/
 .repo.git/
+.git.stale_backup/
 
 # Local raw data and generated products
 Data/*
